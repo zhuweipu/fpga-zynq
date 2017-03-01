@@ -1,5 +1,5 @@
 TOP_MODULE ?= TestHarness
-CONFIG ?= ZynqConfig
+CONFIG ?= BOOMZynqConfig
 TB ?= TestDriver
 
 simv = simv-$(CONFIG)

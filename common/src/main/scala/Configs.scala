@@ -38,8 +38,16 @@ class WithSmallCores extends Config(
     case _ => throw new CDEMatchError
   })
 
+class NoBrPred extends Config(
+  (key, _, _) => key match {
+    case boom.EnableBranchPredictor => false
+  }
+)
+
 class ZynqConfig extends Config(new WithZynqAdapter ++ new DefaultFPGAConfig)
 class ZynqSmallConfig extends Config(new WithSmallCores ++ new ZynqConfig)
+class BOOMZynqConfig extends Config(new WithZynqAdapter ++
+  new NoBrPred ++ new boom.SmallBOOMConfig ++ new boom.BOOMFPGAConfig)
 
 class WithIntegrationTest extends Config(
   (pname, site, here) => pname match {

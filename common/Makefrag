@@ -5,8 +5,10 @@ ROCKET_DIR ?= $(base_dir)/rocket-chip
 TOP_MODULE_PROJECT ?= zynq
 TOP_MODULE ?= Top
 CFG_PROJECT ?= $(TOP_MODULE_PROJECT)
-CONFIG ?= ZynqConfig
+CONFIG ?= BOOMZynqConfig
 EXTRA_PACKAGES=testchipip
+
+export ROCKETCHIP_ADDONS = boom
 
 base_dir = $(abspath ..)
 common = $(base_dir)/common
