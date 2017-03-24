@@ -2,15 +2,17 @@
 package zynq
 
 import Chisel._
-import diplomacy.{LazyModule, LazyModuleImp}
+import config.{Parameters, Field}
+import diplomacy._
+import regmapper._
 import junctions._
 import junctions.NastiConstants._
-import cde.{Parameters, Field}
 import rocketchip._
-import uncore.devices.{DebugBusIO}
-import uncore.tilelink.ClientUncachedTileLinkIOCrossbar
+import uncore.axi4._
+import uncore.tilelink2._
+import uncore.devices._
+import coreplex._
 import testchipip._
-import coreplex.BaseCoreplexBundle
 
 import java.io.File
 
@@ -18,22 +20,15 @@ case object SerialFIFODepth extends Field[Int]
 case object ResetCycles extends Field[Int]
 
 class Top(implicit val p: Parameters) extends Module {
+  val target = Module(LazyModule(new FPGAZynqTop).module)
+
   val io = new Bundle {
     val ps_axi_slave = new NastiIO()(AdapterParams(p)).flip
-    val mem_axi = new NastiIO
+    val mem_axi = target.io.mem_axi4.cloneType
   }
 
-  val target = LazyModule(new FPGAZynqTop(p)).module
   val slave = Module(new ZynqAXISlave(1)(AdapterParams(p)))
-
-  require(target.io.mem_axi.size == 1)
-  require(target.io.mem_ahb.isEmpty)
-  require(target.io.mem_tl.isEmpty)
-  require(target.io.mem_clk.isEmpty)
-  require(target.io.mem_rst.isEmpty)
-
-  io.mem_axi <> target.io.mem_axi.head
-
+  io.mem_axi <> target.io.mem_axi4
   slave.io.nasti.head <> io.ps_axi_slave
   slave.io.serial <> target.io.serial
   target.reset := slave.io.sys_reset
@@ -223,19 +218,79 @@ class NastiFIFO(implicit p: Parameters) extends NastiModule()(p) {
     s"NastiFIFO w cannot accept partial writes")
 }
 
-class FPGAZynqTop(q: Parameters) extends BaseTop(q)
-    with PeripheryBootROM with PeripheryCoreplexLocalInterrupter
-    with PeripherySerial with PeripheryMasterMem {
-  override lazy val module = Module(
-    new FPGAZynqTopModule(p, this, new FPGAZynqTopBundle(p)))
+trait PeripheryBootROMWithHack {
+  this: TopNetwork =>
+  val coreplex: CoreplexRISCVPlatform
+
+  private val bootrom_address = 0x1000
+  private val bootrom_size = 0x1000
+
+  // Currently RC emits a config string that uses a name for offchip memory
+  // that does not comform to PK's expectation. So we prepend what we want.
+  private lazy val hackedConfigString = {
+    val sb = new StringBuilder
+    sb append "ram {\n"
+    sb append "  0 {\n"
+    sb append "  addr 0x%x;\n".format(p(ExtMem).base)
+    sb append "  size 0x%x;\n".format(p(ExtMem).size)
+    sb append "  };\n"
+    sb append "};\n"
+    sb append coreplex.configString
+    val configString = sb.toString
+
+    println(s"\nBIANCOLIN'S HACK: Generated Configuration String\n${configString}")
+    _root_.util.ElaborationArtefacts.add("cfg", configString)
+    configString
+  }
+
+  private lazy val bootrom_contents = GenerateBootROM(p, bootrom_address, hackedConfigString)
+  val bootrom = LazyModule(new TLROM(bootrom_address, bootrom_size, bootrom_contents, true, peripheryBusConfig.beatBytes))
+  bootrom.node := TLFragmenter(peripheryBusConfig.beatBytes, cacheBlockBytes)(peripheryBus.node)
 }
 
-class FPGAZynqTopBundle(p: Parameters) extends BaseTopBundle(p)
-  with PeripheryBootROMBundle with PeripheryCoreplexLocalInterrupterBundle
-  with PeripheryMasterMemBundle with PeripherySerialBundle
+trait PeripheryBootROMWithHackBundle {
+  this: TopNetworkBundle {
+    val outer: PeripheryBootROMWithHack
+  } =>
+}
 
-class FPGAZynqTopModule(p: Parameters, l: FPGAZynqTop, b: => FPGAZynqTopBundle)
-  extends BaseTopModule(p, l, b)
-  with PeripheryBootROMModule with PeripheryCoreplexLocalInterrupterModule
-  with PeripheryMasterMemModule with PeripherySerialModule
-  with HardwiredResetVector with DirectConnection with NoDebug
+trait PeripheryBootROMWithHackModule {
+  this: TopNetworkModule {
+    val outer: PeripheryBootROMWithHack
+    val io: PeripheryBootROMWithHackBundle
+  } =>
+}
+
+class FPGAZynqTop(implicit p: Parameters) extends BaseTop
+    with PeripheryMasterAXI4Mem
+    with PeripherySerial
+    with PeripheryBootROMWithHack
+    with PeripheryDTM
+    with PeripheryCounter
+    with HardwiredResetVector
+    with TiedOffPeripheryDebug
+    with RocketPlexMaster {
+  override lazy val module = new FPGAZynqTopModule(this,
+    () => new FPGAZynqTopBundle(this))
+}
+
+class FPGAZynqTopBundle[+L <: FPGAZynqTop](_outer: L) extends BaseTopBundle(_outer)
+    with PeripheryMasterAXI4MemBundle
+    with PeripherySerialBundle
+    with PeripheryBootROMWithHackBundle
+    with PeripheryDTMBundle
+    with PeripheryCounterBundle
+    with HardwiredResetVectorBundle
+    with TiedOffPeripheryDebugBundle
+    with RocketPlexMasterBundle
+
+class FPGAZynqTopModule[+L <: FPGAZynqTop, +B <: FPGAZynqTopBundle[L]](_outer: L, _io: () => B)
+    extends BaseTopModule(_outer, _io)
+    with PeripheryMasterAXI4MemModule
+    with PeripherySerialModule
+    with PeripheryBootROMWithHackModule
+    with PeripheryDTMModule
+    with PeripheryCounterModule
+    with HardwiredResetVectorModule
+    with TiedOffPeripheryDebugModule
+    with RocketPlexMasterModule
