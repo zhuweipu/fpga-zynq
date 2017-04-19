@@ -59,7 +59,8 @@ class NoBrPred extends Config((here, site, up) => {
   })
 
 class ZynqConfig extends Config(new WithZynqAdapter ++ new DefaultFPGAConfig)
-class BOOMZynqConfig extends Config(new WithZynqAdapter ++ new boom.SmallBoomConfig)
+class BOOMZynqConfig extends Config(new WithZynqAdapter ++ new boom.MediumBoomConfig)
+class SmallBOOMZynqConfig extends Config(new WithZynqAdapter ++ new boom.SmallBoomConfig)
 
 /*
 class WithIntegrationTest extends Config((here, site, up) => {
