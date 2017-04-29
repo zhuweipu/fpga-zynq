@@ -58,7 +58,7 @@ class NoBrPred extends Config((here, site, up) => {
       enableBranchPredictor = false)
   })
 
-class ZynqConfig extends Config(new WithZynqAdapter ++ new DefaultFPGAConfig)
+class ZynqConfig extends Config(new WithZynqAdapter ++ new WithNBigCores(1) ++ new DefaultFPGAConfig)
 class ZC706MIGConfig extends Config(new WithExtMemSize(0x40000000L) ++ new ZynqConfig)
 class BOOMZynqConfig extends Config(new WithExtMemSize(0x40000000L) ++ new WithZynqAdapter ++ new boom.MediumBoomConfig)
 class SmallBOOMZynqConfig extends Config(new WithZynqAdapter ++ new boom.SmallBoomConfig)
