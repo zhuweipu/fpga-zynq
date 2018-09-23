@@ -2,6 +2,9 @@
 *.jou
 *.Xil
 *.swp
+*.bak
+black_box_verilog_files.f
+NA
 
 common/build
 common/target
@@ -32,3 +35,11 @@ zc706/src/verilog/rocketchip_wrapper.v
 zc706/src/verilog/Top.*.v
 zc706/deliver_output
 zc706/soft_build
+
+zc706_MIG/zc706_MIG_rocketchip_*
+zc706_MIG/src/tcl/zc706_MIG_rocketchip_*.tcl
+zc706_MIG/src/tcl/make_bitstream_*.tcl
+zc706_MIG/src/verilog/rocketchip_wrapper.v
+zc706_MIG/src/verilog/Top.*.v
+zc706_MIG/deliver_output
+zc706_MIG/soft_build
