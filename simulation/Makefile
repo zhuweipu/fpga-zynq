@@ -1,6 +1,10 @@
-TOP_MODULE ?= TestHarness
-CONFIG ?= ZynqConfig
-TB ?= TestDriver
+#TOP_MODULE_PROJECT = zynq # for Rocket
+TOP_MODULE_PROJECT = zynq.boom # for BOOM
+TOP_MODULE = TestHarness
+#CONFIG ?= ZynqConfig
+CONFIG ?= SmallBoomZynqConfig
+#CONFIG ?= MediumBoomZynqConfig
+TB = TestDriver
 
 simv = simv-$(CONFIG)
 simv_debug = simv-$(CONFIG)-debug
