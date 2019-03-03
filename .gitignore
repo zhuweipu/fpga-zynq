@@ -3,7 +3,9 @@
 *.Xil
 *.swp
 *.bak
-black_box_verilog_files.f
+firrtl_black_box_resource_files.f
+AsyncResetReg.v
+plusarg_reader.v
 NA
 
 common/build

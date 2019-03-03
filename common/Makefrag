@@ -2,11 +2,9 @@
 
 JOBS = 16
 TEMPLATE_DIR ?= $(base_dir)/boom-template
-ROCKET_DIR    = $(TEMPLATE_DIR)/rocket-chip
-TOP_MODULE_PROJECT ?= zynq
-TOP_MODULE ?= Top
-CFG_PROJECT ?= $(TOP_MODULE_PROJECT)
-CONFIG ?= ZynqConfig
+ROCKET_DIR   ?= $(TEMPLATE_DIR)/rocket-chip
+TOP_MODULE   ?= Top
+CFG_PROJECT  ?= $(TOP_MODULE_PROJECT)
 SCALA_VERSION=2.12.4
 SCALA_VERSION_MAJOR=$(basename $(SCALA_VERSION))
 
@@ -33,7 +31,16 @@ verilog_srcs = \
 	src/verilog/plusarg_reader.v \
 
 bootimage = fpga-images-$(BOARD)/boot.bin
+ifneq ($(BOARD),zc706_MIG)
 bootimage: $(bootimage)
+else
+default: bitstream
+endif
+
+$(addprefix src/verilog/,AsyncResetReg.v plusarg_reader.v): \
+	src/verilog/%.v: \
+	$(ROCKET_DIR)/src/main/resources/vsrc/%.v
+	cp $< $@
 
 # Taken from rocket chip 2a5aeea. TODO: Maybe source this directly from makefrag?
 SBT ?= java -Xmx2G -Xss8M -XX:MaxPermSize=256M -jar $(ROCKET_DIR)/sbt-launch.jar ++$(SCALA_VERSION)
@@ -57,8 +64,10 @@ init-submodules:
 
 # Specialize sources for board
 # ------------------------------------------------------------------------------
+ifneq ($(BOARD),zc706_MIG)
 src/verilog/rocketchip_wrapper.v: $(common)/rocketchip_wrapper.v
 	cp $(common)/rocketchip_wrapper.v src/verilog/
+endif
 
 src/tcl/$(proj_name).tcl: $(common)/zynq_rocketchip.tcl Makefile
 	sed 's/BOARD_NAME_HERE/$(BOARD)/g;s/PART_NUMBER_HERE/$(PART)/g;$(insert_board);s/CHISEL_CONFIG_HERE/$(CONFIG)/g' \
@@ -84,7 +93,7 @@ SCALA_SOURCES=$(foreach pkg,$(PACKAGES),$(call lookup_scala_srcs,$(base_dir)/$(p
 
 $(FIRRTL_FILE) $(ANNO_FILE): $(SCALA_SOURCES) $(FIRRTL_JAR)
 	mkdir -p $(common_build)
-	cd $(base_dir) && $(SBT) "runMain $(TOP_MODULE_PROJECT).Generator $(common_build) \
+	cd $(base_dir) && $(SBT) "runMain zynq.Generator $(common_build) \
 	$(TOP_MODULE_PROJECT) $(TOP_MODULE) $(CFG_PROJECT) $(CONFIG)"
 
 .PRECIOUS: $(FIRRTL_FILE) $(ANNO_FILE)
@@ -155,6 +164,7 @@ arm-dtb:
 
 # Handle images and git submodule for prebuilt modules
 # ------------------------------------------------------------------------------
+ifneq ($(BOARD),zc706_MIG)
 images = fpga-images-$(BOARD)/boot.bif
 $(images):
 	git submodule update --init --depth=1 fpga-images-$(BOARD)
@@ -197,6 +207,7 @@ fetch-ramdisk:
 # ------------------------------------------------------------------------------
 $(output_delivery)/boot.bin:
 	cd $(output_delivery); bootgen -image output.bif -w -o boot.bin
+endif
 
 # Build riscv-fesvr for zynq
 # ------------------------------------------------------------------------------
