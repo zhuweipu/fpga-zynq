@@ -1,80 +1,66 @@
 package zynq
 
-import config.{Parameters, Config}
-import diplomacy.LazyModule
-import junctions.{NastiKey, NastiParameters}
-import tile._
-import coreplex._
-import uncore.tilelink._
-import uncore.coherence._
-import uncore.agents._
-import uncore.devices.NTiles
-import rocketchip._
-import rocket._
+import chisel3._
+import freechips.rocketchip.config.{Parameters, Config}
+import freechips.rocketchip.subsystem._
+import freechips.rocketchip.devices.tilelink.BootROMParams
+import freechips.rocketchip.rocket.{RocketCoreParams, MulDivParams, DCacheParams, ICacheParams}
+import freechips.rocketchip.tile.{RocketTileParams, BuildCore, XLen}
 import testchipip._
-import Chisel._
+
+class WithBootROM extends Config((site, here, up) => {
+  case BootROMParams => BootROMParams(
+    contentFileName = s"../testchipip/bootrom/bootrom.rv${site(XLen)}.img")
+})
 
 class WithZynqAdapter extends Config((site, here, up) => {
-    //L2 Memory System Params
-    case AmoAluOperandBits => site(XLen)
-    case NAcquireTransactors => 7
-    case L2StoreDataQueueDepth => 1
-    case BuildRoCC => Nil
-    case CacheBlockOffsetBits => chisel3.util.log2Up(site(CacheBlockBytes))
-    case TLKey("L1toL2") =>
-      val nTiles = site(NTiles)
-      val useMEI = nTiles <= 1
-      val dir = new NullRepresentation(nTiles)
-      TileLinkParameters(
-        coherencePolicy = if (useMEI) new MEICoherence(dir) else new MESICoherence(dir),
-        nManagers = site(BankedL2Config).nBanks + 1 /* MMIO */,
-        nCachingClients = 1,
-        nCachelessClients = 1,
-        maxClientXacts = List(
-          // L1 cache
-          site(RocketTilesKey).head.dcache.get.nMSHRs + 1 /* IOMSHR */,
-          // RoCC
-          if (site(BuildRoCC).isEmpty) 1 else site(RoccMaxTaggedMemXacts)).max,
-        maxClientsPerPort = if (site(BuildRoCC).isEmpty) 1 else 2,
-        maxManagerXacts = site(NAcquireTransactors) + 2,
-        dataBeats = (8 * site(CacheBlockBytes)) / site(XLen),
-        dataBits = (8 * site(CacheBlockBytes))
-      )
+  case SerialFIFODepth => 16
+  case ResetCycles => 10
+  case ZynqAdapterBase => BigInt(0x43C00000L)
+  case ExtMem => up(ExtMem, site).copy(idBits = 6)
+  case ExtIn => up(ExtIn, site).copy(beatBytes = 4, idBits = 12)
+  case BlockDeviceKey => BlockDeviceConfig(nTrackers = 2)
+  case BlockDeviceFIFODepth => 16
+  case NetworkFIFODepth => 16
+})
 
-    case SerialInterfaceWidth => 32
-    case SerialFIFODepth => 16
-    case ResetCycles => 10
-    case NExtTopInterrupts => 0
-    // This should be removed once adapter is TL2
-    case TLId => "L1toL2"
-    // PS slave interface
-    case NastiKey => NastiParameters(32, 32, 12)
-    // To PS Memory System / MIG
-    case ExtMem => MasterConfig(base=0x80000000L, size=0x10000000L, beatBytes=8, idBits=6)
-  })
+class WithNMediumCores(n: Int) extends Config((site, here, up) => {
+  case RocketTilesKey => {
+    val medium = RocketTileParams(
+      core = RocketCoreParams(mulDiv = Some(MulDivParams(
+        mulUnroll = 8,
+        mulEarlyOut = true,
+        divEarlyOut = true)),
+        fpu = None),
+      dcache = Some(DCacheParams(
+        rowBits = site(SystemBusKey).beatBytes*8,
+        nSets = 64,
+        nWays = 1,
+        nTLBEntries = 4,
+        nMSHRs = 0,
+        blockBytes = site(CacheBlockBytes))),
+      icache = Some(ICacheParams(
+        rowBits = site(SystemBusKey).beatBytes*8,
+        nSets = 64,
+        nWays = 1,
+        nTLBEntries = 4,
+        blockBytes = site(CacheBlockBytes))))
+    List.fill(n)(medium) ++ up(RocketTilesKey, site)
+  }
+})
 
-class NoBrPred extends Config((here, site, up) => {
-    case boom.BoomKey => up(boom.BoomKey).copy(
-      enableBranchPredictor = false)
-  })
+class DefaultConfig extends Config(
+  new WithBootROM ++ new freechips.rocketchip.system.DefaultConfig)
+class DefaultMediumConfig extends Config(
+  new WithBootROM ++ new WithNMediumCores(1) ++
+  new freechips.rocketchip.system.BaseConfig)
+class DefaultSmallConfig extends Config(
+  new WithBootROM ++ new freechips.rocketchip.system.DefaultSmallConfig)
 
-class ZynqConfig extends Config(new WithZynqAdapter ++ new WithNBigCores(1) ++ new DefaultFPGAConfig)
-class ZC706MIGConfig extends Config(new WithExtMemSize(0x40000000L) ++ new ZynqConfig)
-class BOOMZynqConfig extends Config(new WithExtMemSize(0x40000000L) ++ new WithZynqAdapter ++ new boom.MediumBoomConfig)
-class SmallBOOMZynqConfig extends Config(new WithZynqAdapter ++ new boom.SmallBoomConfig)
+class ZynqConfig extends Config(new WithZynqAdapter ++ new DefaultConfig)
+class ZynqMediumConfig extends Config(new WithZynqAdapter ++ new DefaultMediumConfig)
+class ZynqSmallConfig extends Config(new WithZynqAdapter ++ new DefaultSmallConfig)
 
-/*
-class WithIntegrationTest extends Config((here, site, up) => {
-    case BuildSerialDriver =>
-      (p: Parameters) => Module(new IntegrationTestSerial()(p))
-    case BuildTiles => Seq.fill(site(NTiles)) {
-      (_reset: Bool, p: Parameters) => Module(new DummyTile()(p.alterPartial({
-        case TileId => 0
-        case TLId => "L1toL2"
-        case NUncachedTileLinkPorts => 1
-      })))
-    }
-  })
-
-class IntegrationTestConfig extends Config(new WithIntegrationTest ++ new ZynqConfig)
-*/
+class ZynqFPGAConfig extends Config(new WithoutTLMonitors ++ new ZynqConfig)
+class ZynqMediumFPGAConfig extends Config(new WithoutTLMonitors ++ new ZynqMediumConfig)
+class ZynqSmallFPGAConfig extends Config(new WithoutTLMonitors ++ new ZynqSmallConfig)
