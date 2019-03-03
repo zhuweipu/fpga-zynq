@@ -1,5 +1,5 @@
 TOP_MODULE ?= TestHarness
-CONFIG ?= BOOMZynqConfig
+CONFIG ?= ZynqConfig
 TB ?= TestDriver
 
 simv = simv-$(CONFIG)
@@ -12,9 +12,9 @@ include ../common/Makefrag
 
 sim_vsrcs = \
 	src/verilog/$(TOP_MODULE).$(CONFIG).v \
-	$(base_dir)/rocket-chip/vsrc/TestDriver.v \
-	$(base_dir)/rocket-chip/vsrc/AsyncResetReg.v \
-	$(base_dir)/rocket-chip/vsrc/plusarg_reader.v \
+	$(ROCKET_DIR)/src/main/resources/vsrc/TestDriver.v \
+	$(ROCKET_DIR)/src/main/resources/vsrc/AsyncResetReg.v \
+	$(ROCKET_DIR)/src/main/resources/vsrc/plusarg_reader.v \
 	$(base_dir)/testchipip/vsrc/SimSerial.v \
 	$(base_dir)/testchipip/vsrc/SimBlockDevice.v \
 

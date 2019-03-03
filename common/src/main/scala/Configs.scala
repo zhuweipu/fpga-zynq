@@ -10,15 +10,15 @@ import testchipip._
 
 class WithBootROM extends Config((site, here, up) => {
   case BootROMParams => BootROMParams(
-    contentFileName = s"../testchipip/bootrom/bootrom.rv${site(XLen)}.img")
+    contentFileName = s"testchipip/bootrom/bootrom.rv${site(XLen)}.img")
 })
 
 class WithZynqAdapter extends Config((site, here, up) => {
   case SerialFIFODepth => 16
   case ResetCycles => 10
   case ZynqAdapterBase => BigInt(0x43C00000L)
-  case ExtMem => up(ExtMem, site).copy(idBits = 6)
-  case ExtIn => up(ExtIn, site).copy(beatBytes = 4, idBits = 12)
+  case ExtMem => up(ExtMem, site) map (_.copy(idBits = 6))
+  case ExtIn => up(ExtIn, site) map (_.copy(beatBytes = 4, idBits = 12))
   case BlockDeviceKey => BlockDeviceConfig(nTrackers = 2)
   case BlockDeviceFIFODepth => 16
   case NetworkFIFODepth => 16

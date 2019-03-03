@@ -15,7 +15,6 @@ class TestHarness(implicit val p: Parameters) extends Module {
     val success = Output(Bool())
   })
 
-  val config = p(ExtIn)
   val driver = Module(LazyModule(new TestHarnessDriver).module)
   val dut = Module(LazyModule(new FPGAZynqTop).module)
 
@@ -32,7 +31,7 @@ class TestHarness(implicit val p: Parameters) extends Module {
 
 class TestHarnessDriver(implicit p: Parameters) extends LazyModule {
   val xbar = LazyModule(new TLXbar)
-  val config = p(ExtIn)
+  val config = p(ExtIn).get
   val base = p(ZynqAdapterBase)
 
   val zynq = LazyModule(new ZynqAdapterCore(base, config.beatBytes))
