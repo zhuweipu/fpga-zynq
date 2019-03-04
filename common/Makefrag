@@ -121,7 +121,11 @@ vivado: $(project)
 bitstream = $(proj_name)/$(proj_name).runs/impl_1/rocketchip_wrapper.bit
 $(bitstream): src/tcl/make_bitstream_$(CONFIG).tcl $(verilog_srcs) src/constrs/base.xdc | $(project)
 	vivado -mode tcl -source src/tcl/make_bitstream_$(CONFIG).tcl
-bitstream: $(bitstream)
+
+rocketchip_wrapper.bit: $(bitstream)
+	cp $< $@
+
+bitstream: rocketchip_wrapper.bit
 
 
 

@@ -6,6 +6,7 @@
 firrtl_black_box_resource_files.f
 AsyncResetReg.v
 plusarg_reader.v
+rocketchip_wrapper.bit
 NA
 
 common/build
