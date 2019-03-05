@@ -1,6 +1,6 @@
 git clone -n https://github.com/firesim/riscv-tools.git
 cd riscv-tools
-git checkout firesim
+git checkout 1859daea5e71809af62a6d4eb12d8f203c7efbc8
 git submodule update --init
 
 cd riscv-gnu-toolchain
@@ -10,9 +10,6 @@ git submodule update riscv-gcc
 git submodule update riscv-glibc
 git submodule update riscv-newlib
 git submodule update riscv-dejagnu
-cd riscv-gcc
-git checkout be9abee2aaa919ad8530336569d17b5a60049717
-cd ../..
 
 ./build.sh
 cd riscv-gnu-toolchain/build
