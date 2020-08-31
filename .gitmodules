@@ -9,7 +9,7 @@
 	url = https://github.com/ucb-bar/testchipip.git
 [submodule "boom-template"]
 	path = boom-template
-	url = https://github.com/riscv-boom/boom-template.git
+	url = https://github.com/zhuweipu/boom-template
 [submodule "sw/buildroot"]
 	path = sw/buildroot
 	url = https://github.com/sifive/buildroot.git
